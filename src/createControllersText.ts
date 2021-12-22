@@ -576,7 +576,7 @@ ${validateInfo
               }).join(',\n      ')
                       : ''
                     }
-                          }${hooksTexts.length ? ',\n      ' : ''
+      }${hooksTexts.length ? ',\n      ' : ''
                     }`
                     : ''
                   }${hooksTexts.join(',\n      ')}\n    }${fs.readFileSync(`${input}/$relay.ts`, 'utf8').includes('AdditionalRequest')
