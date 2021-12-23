@@ -1,8 +1,8 @@
 {
-  "name": "frourio",
+  "name": "obniz-frourio",
   "version": "0.25.1",
   "description": "Fast and type-safe full stack framework, for TypeScript",
-  "author": "Solufa <solufa2020@gmail.com>",
+  "author": "Ryoei Shimaura <ryoueishimaura@obniz.com>",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
