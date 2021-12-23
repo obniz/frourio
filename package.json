@@ -26,6 +26,7 @@
   "scripts": {
     "dev": "npm run build && cd servers && aspida && node build.js",
     "build": "npm run rimraf -- dist && tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
     "rimraf": "node -e \"require('fs').rmdirSync(process.argv[1], { recursive: true })\"",
     "release": "standard-version --skip.tag",
     "release:major": "npm run release -- --release-as major",
