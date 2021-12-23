@@ -17,8 +17,8 @@ const findRootFiles = (dir: string): string[] =>
         ...(d.isDirectory()
           ? findRootFiles(`${dir}/${d.name}`)
           : d.name === 'hooks.ts' || d.name === 'controller.ts'
-          ? [`${dir}/${d.name}`]
-          : [])
+            ? [`${dir}/${d.name}`]
+            : [])
       ],
       []
     )
@@ -33,10 +33,10 @@ const initTSC = (appDir: string, project: string) => {
 
   const compilerOptions = configFileName
     ? ts.parseJsonConfigFileContent(
-        ts.readConfigFile(configFileName, ts.sys.readFile).config,
-        ts.sys,
-        configDir
-      )
+      ts.readConfigFile(configFileName, ts.sys.readFile).config,
+      ts.sys,
+      configDir
+    )
     : undefined
 
   const program = ts.createProgram(
@@ -63,9 +63,8 @@ import type { FastifyInstance, onRequestHookHandler, preParsingHookHandler, preV
 import type { Schema } from 'fast-json-stringify'
 import type { HttpStatusOk } from 'aspida'
 import type { ServerMethods } from '${appText}'
-${
-  hasMultiAdditionals
-    ? additionalReqs
+${hasMultiAdditionals
+      ? additionalReqs
         .map(
           (req, i) =>
             `import type { AdditionalRequest as AdditionalRequest${i} } from '${req.replace(
@@ -74,39 +73,40 @@ ${
             )}'\n`
         )
         .join('')
-    : hasAdditionals
-    ? `import type { AdditionalRequest } from '${additionalReqs[0]}'\n`
-    : ''
-}import type { Methods } from './'
+      : hasAdditionals
+        ? `import type { AdditionalRequest } from '${additionalReqs[0]}'\n`
+        : ''
+    }import type { Methods } from './'
 
-${
-  hasMultiAdditionals
-    ? `type AdditionalRequest = ${additionalReqs
+${hasMultiAdditionals
+      ? `type AdditionalRequest = ${additionalReqs
         .map((_, i) => `AdditionalRequest${i}`)
         .join(' & ')}\n`
-    : ''
-}${
-    hasAdditionals
+      : ''
+    }${hasAdditionals
       ? 'type AddedHandler<T> = T extends (req: infer U, ...args: infer V) => infer W ? (req: U & Partial<AdditionalRequest>, ...args: V) => W : never\n'
       : ''
-  }type Hooks = {
+    }type Hooks = {
 ${[
-  ['onRequest', 'onRequestHookHandler'],
-  ['preParsing', 'preParsingHookHandler'],
-  ['preValidation', 'preValidationHookHandler'],
-  ['preHandler', 'preHandlerHookHandler']
-]
-  .map(([key, val]) =>
-    hasAdditionals
-      ? `  ${key}?: AddedHandler<${val}> | AddedHandler<${val}>[]\n`
-      : `  ${key}?: ${val} | ${val}[]\n`
-  )
-  .join('')}}
-type ControllerMethods = ServerMethods<Methods, ${hasAdditionals ? 'AdditionalRequest & ' : ''}{${
-    params.length
+      ['onRequest', 'onRequestHookHandler'],
+      ['preParsing', 'preParsingHookHandler'],
+      ['preValidation', 'preValidationHookHandler'],
+      ['preHandler', 'preHandlerHookHandler']
+    ]
+      .map(([key, val]) =>
+        hasAdditionals
+          ? `  ${key}?: AddedHandler<${val}> | AddedHandler<${val}>[]\n`
+          : `  ${key}?: ${val} | ${val}[]\n`
+      )
+      .join('')}}
+type ControllerMethods = ServerMethods<Methods, ${hasAdditionals ? 'AdditionalRequest & ' : ''}{${params.length
       ? `\n  params: {\n${params.map(v => `    ${v[0]}: ${v[1]}`).join('\n')}\n  }\n`
       : ''
-  }}>
+    }}>
+
+export function defineRequestSchema<T extends { [U in keyof ControllerMethods]?: { [V in 'body' | 'querystring' | 'params' | 'headers']?: Schema } }>(methods: () => T) {
+  return methods
+}
 
 export function defineResponseSchema<T extends { [U in keyof ControllerMethods]?: { [V in HttpStatusOk]?: Schema }}>(methods: () => T) {
   return methods
@@ -134,9 +134,9 @@ export function defineController<T extends Record<string, any>>(methods: (fastif
 
 const getAdditionalResPath = (input: string, name: string) =>
   fs.existsSync(path.join(input, `${name}.ts`)) &&
-  /(^|\n)export .+ AdditionalRequest(,| )/.test(
-    fs.readFileSync(path.join(input, `${name}.ts`), 'utf8')
-  )
+    /(^|\n)export .+ AdditionalRequest(,| )/.test(
+      fs.readFileSync(path.join(input, `${name}.ts`), 'utf8')
+    )
     ? [`./${name}`]
     : []
 
@@ -182,7 +182,8 @@ export default (appDir: string, project: string) => {
 
   const { program, checker } = initTSC(appDir, project)
   const hooksPaths: string[] = []
-  const controllers: [string, boolean, boolean][] = []
+  // txt    hooks    response request
+  const controllers: [string, boolean, boolean, boolean][] = []
   const createText = (
     dirPath: string,
     cascadingHooks: { name: string; events: { type: HooksEvent; isArray: boolean }[] }[]
@@ -195,8 +196,8 @@ export default (appDir: string, project: string) => {
     if (source) {
       const methods = ts.forEachChild(source, node =>
         (ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node)) &&
-        node.name.escapedText === 'Methods' &&
-        node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)
+          node.name.escapedText === 'Methods' &&
+          node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)
           ? checker.getTypeAtLocation(node).getProperties()
           : undefined
       )
@@ -254,6 +255,7 @@ export default (appDir: string, project: string) => {
         let isPromiseMethods: string[] = []
         let ctrlHooksSignature: ts.Signature | undefined
         let resSchemaSignature: ts.Signature | undefined
+        let reqSchemaSignature: ts.Signature | undefined
 
         if (controllerSource) {
           isPromiseMethods =
@@ -290,6 +292,7 @@ export default (appDir: string, project: string) => {
 
           let ctrlHooksNode: ts.VariableDeclaration | ts.ExportSpecifier | undefined
           let resSchemaNode: ts.VariableDeclaration | ts.ExportSpecifier | undefined
+          let reqSchemaNode: ts.VariableDeclaration | ts.ExportSpecifier | undefined
 
           ts.forEachChild(controllerSource, node => {
             if (
@@ -303,6 +306,10 @@ export default (appDir: string, project: string) => {
                 node.declarationList.declarations.find(
                   d => d.name.getText() === 'responseSchema'
                 ) ?? resSchemaNode
+              reqSchemaNode =
+                node.declarationList.declarations.find(
+                  d => d.name.getText() === 'requestSchema'
+                ) ?? reqSchemaNode
             } else if (ts.isExportDeclaration(node)) {
               const { exportClause } = node
               if (exportClause && ts.isNamedExports(exportClause)) {
@@ -311,6 +318,9 @@ export default (appDir: string, project: string) => {
                 resSchemaNode =
                   exportClause.elements.find(el => el.name.text === 'responseSchema') ??
                   resSchemaNode
+                reqSchemaNode =
+                  exportClause.elements.find(el => el.name.text === 'requestSchema') ??
+                  reqSchemaNode
               }
             }
           })
@@ -325,6 +335,13 @@ export default (appDir: string, project: string) => {
           if (resSchemaNode) {
             resSchemaSignature = checker.getSignaturesOfType(
               checker.getTypeAtLocation(resSchemaNode),
+              ts.SignatureKind.Call
+            )[0]
+          }
+
+          if (reqSchemaNode) {
+            reqSchemaSignature = checker.getSignaturesOfType(
+              checker.getTypeAtLocation(reqSchemaNode),
               ts.SignatureKind.Call
             )[0]
           }
@@ -367,8 +384,22 @@ export default (appDir: string, project: string) => {
           .getProperties()
           .map(p => p.name as LowerHttpMethod)
 
+        const reqSchemaMethods = reqSchemaSignature
+          ?.getReturnType()
+          .getProperties()
+          .map(p => p.name as LowerHttpMethod)
+
         const genResSchemaText = (method: LowerHttpMethod) =>
-          `schema: { response: responseSchema${controllers.filter(c => c[2]).length}.${method} }`
+          `response: responseSchema${controllers.filter(c => c[2]).length}.${method}`
+        const genBodySchemaText = (method: LowerHttpMethod) =>
+          `body: requestSchema${controllers.filter(c => c[3]).length}.${method}.body`
+        const genQuerystringSchemaText = (method: LowerHttpMethod) =>
+          `querystring: requestSchema${controllers.filter(c => c[3]).length}.${method}.querystring`
+        const genParamsSchemaText = (method: LowerHttpMethod) =>
+          `params: requestSchema${controllers.filter(c => c[3]).length}.${method}.params`
+        const genHeadersSchemaText = (method: LowerHttpMethod) =>
+          `headers: requestSchema${controllers.filter(c => c[3]).length}.${method}.headers`
+
         const getSomeTypeQueryParams = (typeName: string, query: ts.Symbol) =>
           query.valueDeclaration &&
           checker
@@ -380,8 +411,8 @@ export default (appDir: string, project: string) => {
                 checker.typeToString(checker.getTypeOfSymbolAtLocation(p, p.valueDeclaration))
               return typeString === typeName || typeString === `${typeName}[]`
                 ? `['${p.name}', ${!!p.declarations?.some(d =>
-                    d.getChildren().some(c => c.kind === ts.SyntaxKind.QuestionToken)
-                  )}, ${typeString === `${typeName}[]`}]`
+                  d.getChildren().some(c => c.kind === ts.SyntaxKind.QuestionToken)
+                )}, ${typeString === `${typeName}[]`}]`
                 : null
             })
             .filter(Boolean)
@@ -427,131 +458,142 @@ export default (appDir: string, project: string) => {
                     const texts = [
                       numberTypeQueryParams?.length
                         ? query?.declarations?.some(
-                            d => d.getChildAt(1).kind === ts.SyntaxKind.QuestionToken
-                          )
+                          d => d.getChildAt(1).kind === ts.SyntaxKind.QuestionToken
+                        )
                           ? `callParserIfExistsQuery(parseNumberTypeQueryParams([${numberTypeQueryParams.join(
-                              ', '
-                            )}]))`
+                            ', '
+                          )}]))`
                           : `parseNumberTypeQueryParams([${numberTypeQueryParams.join(', ')}])`
                         : '',
                       booleanTypeQueryParams?.length
                         ? query?.declarations?.some(
-                            d => d.getChildAt(1).kind === ts.SyntaxKind.QuestionToken
-                          )
+                          d => d.getChildAt(1).kind === ts.SyntaxKind.QuestionToken
+                        )
                           ? `callParserIfExistsQuery(parseBooleanTypeQueryParams([${booleanTypeQueryParams.join(
-                              ', '
-                            )}]))`
+                            ', '
+                          )}]))`
                           : `parseBooleanTypeQueryParams([${booleanTypeQueryParams.join(', ')}])`
                         : '',
                       isFormData && reqBody?.valueDeclaration
                         ? `formatMultipartData([${checker
-                            .getTypeOfSymbolAtLocation(reqBody, reqBody.valueDeclaration)
-                            .getProperties()
-                            .map(p => {
-                              const node =
-                                p.valueDeclaration &&
-                                checker.typeToTypeNode(
-                                  checker.getTypeOfSymbolAtLocation(p, p.valueDeclaration),
-                                  undefined,
-                                  undefined
-                                )
+                          .getTypeOfSymbolAtLocation(reqBody, reqBody.valueDeclaration)
+                          .getProperties()
+                          .map(p => {
+                            const node =
+                              p.valueDeclaration &&
+                              checker.typeToTypeNode(
+                                checker.getTypeOfSymbolAtLocation(p, p.valueDeclaration),
+                                undefined,
+                                undefined
+                              )
 
-                              return node && (ts.isArrayTypeNode(node) || ts.isTupleTypeNode(node))
-                                ? `['${p.name}', ${!!p.declarations?.some(d =>
-                                    d
-                                      .getChildren()
-                                      .some(c => c.kind === ts.SyntaxKind.QuestionToken)
-                                  )}]`
-                                : undefined
-                            })
-                            .filter(Boolean)
-                            .join(', ')}])`
+                            return node && (ts.isArrayTypeNode(node) || ts.isTupleTypeNode(node))
+                              ? `['${p.name}', ${!!p.declarations?.some(d =>
+                                d
+                                  .getChildren()
+                                  .some(c => c.kind === ts.SyntaxKind.QuestionToken)
+                              )}]`
+                              : undefined
+                          })
+                          .filter(Boolean)
+                          .join(', ')}])`
                         : '',
                       ...genHookTexts('preValidation'),
                       ...(query &&
-                      [...(numberTypeQueryParams ?? []), ...(booleanTypeQueryParams ?? [])].some(
-                        t => t?.endsWith('true]')
-                      ) &&
-                      validateInfo.length
+                        [...(numberTypeQueryParams ?? []), ...(booleanTypeQueryParams ?? [])].some(
+                          t => t?.endsWith('true]')
+                        ) &&
+                        validateInfo.length
                         ? ['normalizeQuery']
                         : []),
                       validateInfo.length
                         ? `createValidateHandler(req => [
 ${validateInfo
-  .map(v =>
-    v.type
-      ? `          ${
-          v.hasQuestion ? `Object.keys(req.${v.name} as any).length ? ` : ''
-        }validateOrReject(Object.assign(new Validators.${checker.typeToString(v.type)}(), req.${
-          v.name
-        } as any), validatorOptions)${v.hasQuestion ? ' : null' : ''}`
-      : ''
-  )
-  .join(',\n')}\n        ])`
+                          .map(v =>
+                            v.type
+                              ? `          ${v.hasQuestion ? `Object.keys(req.${v.name} as any).length ? ` : ''
+                              }validateOrReject(Object.assign(new Validators.${checker.typeToString(v.type)}(), req.${v.name
+                              } as any), validatorOptions)${v.hasQuestion ? ' : null' : ''}`
+                              : ''
+                          )
+                          .join(',\n')}\n        ])`
                         : '',
                       dirPath.includes('@number')
                         ? `createTypedParamsHandler(['${dirPath
-                            .split('/')
-                            .filter(p => p.includes('@number'))
-                            .map(p => p.split('@')[0].slice(1))
-                            .join("', '")}'])`
+                          .split('/')
+                          .filter(p => p.includes('@number'))
+                          .map(p => p.split('@')[0].slice(1))
+                          .join("', '")}'])`
                         : ''
                     ].filter(Boolean)
 
                     return texts.length
-                      ? `${key}: ${
-                          texts.length === 1
-                            ? texts[0].replace(/^\.+/, '')
-                            : `[\n        ${texts.join(',\n        ')}\n      ]`
-                        }`
+                      ? `${key}: ${texts.length === 1
+                        ? texts[0].replace(/^\.+/, '')
+                        : `[\n        ${texts.join(',\n        ')}\n      ]`
+                      }`
                       : ''
                   }
 
                   const texts = genHookTexts(key).filter(Boolean)
                   return texts.length
-                    ? `${key}: ${
-                        texts.length === 1 ? texts[0].replace('...', '') : `[${texts.join(', ')}]`
-                      }`
+                    ? `${key}: ${texts.length === 1 ? texts[0].replace('...', '') : `[${texts.join(', ')}]`
+                    }`
                     : ''
                 })
                 .filter(Boolean)
 
-              return `  fastify.${m.name}(${
-                hooksTexts.length || resSchemaMethods?.includes(m.name as LowerHttpMethod)
-                  ? '\n    '
-                  : ''
-              }${
-                dirPath
+              return `  fastify.${m.name}(${hooksTexts.length || resSchemaMethods?.includes(m.name as LowerHttpMethod) || reqSchemaMethods?.includes(m.name as LowerHttpMethod)
+                ? '\n    '
+                : ''
+                }${dirPath
                   ? `\`\${basePath}${`/${dirPath}`
-                      .replace(/\/_/g, '/:')
-                      .replace(/@.+?($|\/)/g, '$1')}\``
+                    .replace(/\/_/g, '/:')
+                    .replace(/@.+?($|\/)/g, '$1')}\``
                   : "basePath || '/'"
-              },${
-                hooksTexts.length || resSchemaMethods?.includes(m.name as LowerHttpMethod)
-                  ? `\n    {\n      ${
-                      resSchemaMethods?.includes(m.name as LowerHttpMethod)
-                        ? `${genResSchemaText(m.name as LowerHttpMethod)}${
-                            hooksTexts.length ? ',\n      ' : ''
-                          }`
-                        : ''
-                    }${hooksTexts.join(',\n      ')}\n    }${
-                      fs.readFileSync(`${input}/$relay.ts`, 'utf8').includes('AdditionalRequest')
-                        ? ' as RouteShorthandOptions'
-                        : ''
-                    },\n    `
+                },${hooksTexts.length || resSchemaMethods?.includes(m.name as LowerHttpMethod) || reqSchemaMethods?.includes(m.name as LowerHttpMethod)
+                  ? `\n    {\n      ${resSchemaMethods?.includes(m.name as LowerHttpMethod) || reqSchemaMethods?.includes(m.name as LowerHttpMethod)
+                    ? `schema: {
+        ${resSchemaMethods?.includes(m.name as LowerHttpMethod) ? `${genResSchemaText(m.name as LowerHttpMethod)},` : ''}
+        ${reqSchemaMethods?.includes(m.name as LowerHttpMethod)
+                ? reqSchemaSignature?.getReturnType().getProperty(m.name)?.declarations?.map(d => checker.getTypeAtLocation(d).getProperties().map(p => p.name))[0].map(kind => {
+                    let txt = '';
+                    switch (kind) {
+                      case 'body':
+                        txt = genBodySchemaText(m.name as LowerHttpMethod);
+                        break;
+                      case 'querystring':
+                        txt = genQuerystringSchemaText(m.name as LowerHttpMethod);
+                        break;
+                      case 'params':
+                        txt = genParamsSchemaText(m.name as LowerHttpMethod);
+                        break;
+                      case 'headers':
+                        txt = genHeadersSchemaText(m.name as LowerHttpMethod);
+                        break;
+                    }
+                    return txt;
+              }).join(',\n      ')
+                      : ''
+                    }
+      }${hooksTexts.length ? ',\n      ' : ''
+                    }`
+                    : ''
+                  }${hooksTexts.join(',\n      ')}\n    }${fs.readFileSync(`${input}/$relay.ts`, 'utf8').includes('AdditionalRequest')
+                    ? ' as RouteShorthandOptions'
+                    : ''
+                  },\n    `
                   : ' '
-              }${
-                isPromiseMethods.includes(m.name) ? 'asyncMethodToHandler' : 'methodToHandler'
-              }(controller${controllers.length}.${m.name})${
-                hooksTexts.length || resSchemaMethods?.includes(m.name as LowerHttpMethod)
+                }${isPromiseMethods.includes(m.name) ? 'asyncMethodToHandler' : 'methodToHandler'
+                }(controller${controllers.length}.${m.name})${hooksTexts.length || resSchemaMethods?.includes(m.name as LowerHttpMethod)
                   ? '\n  '
                   : ''
-              })\n`
+                })\n`
             })
             .join('\n')
         )
 
-        controllers.push([`${input}/controller`, !!ctrlHooksEvents, !!resSchemaMethods])
+        controllers.push([`${input}/controller`, !!ctrlHooksEvents, !!resSchemaMethods, !!reqSchemaMethods])
       }
     }
 
@@ -580,6 +622,7 @@ ${validateInfo
   const text = createText('', []).join('\n')
   const ctrlHooks = controllers.filter(c => c[1])
   const resSchemas = controllers.filter(c => c[2])
+  const reqSchemas = controllers.filter(c => c[3])
 
   return {
     imports: `${hooksPaths
@@ -588,28 +631,29 @@ ${validateInfo
           `import hooksFn${i} from '${m.replace(/^api/, './api').replace(appDir, './api')}'\n`
       )
       .join('')}${controllers
-      .map(
-        (ctrl, i) =>
-          `import controllerFn${i}${
-            ctrl[1] || ctrl[2]
-              ? `, { ${ctrl[1] ? `hooks as ctrlHooksFn${ctrlHooks.indexOf(ctrl)}` : ''}${
-                  ctrl[1] && ctrl[2] ? ', ' : ''
-                }${
-                  ctrl[2] ? `responseSchema as responseSchemaFn${resSchemas.indexOf(ctrl)}` : ''
-                } }`
+        .map(
+          (ctrl, i) =>
+            `import controllerFn${i}${ctrl[1] || ctrl[2] || ctrl[3]
+              ? `, { ${ctrl[1] ? `hooks as ctrlHooksFn${ctrlHooks.indexOf(ctrl)}` : ''}${((ctrl[1] && ctrl[2]) || (ctrl[1] && ctrl[3])) ? ', ' : ''
+              }${ctrl[2] ? `responseSchema as responseSchemaFn${resSchemas.indexOf(ctrl)}` : ''
+              }${((ctrl[2] && ctrl[1]) || (ctrl[2] && ctrl[3])) ? ', ' : ''
+              }${ctrl[3] ? `requestSchema as requestSchemaFn${reqSchemas.indexOf(ctrl)}` : ''
+              } }`
               : ''
-          } from '${ctrl[0].replace(/^api/, './api').replace(appDir, './api')}'\n`
-      )
-      .join('')}`,
+            } from '${ctrl[0].replace(/^api/, './api').replace(appDir, './api')}'\n`
+        )
+        .join('')}`,
     consts: `${hooksPaths
       .map((_, i) => `  const hooks${i} = hooksFn${i}(fastify)\n`)
       .join('')}${ctrlHooks
-      .map((_, i) => `  const ctrlHooks${i} = ctrlHooksFn${i}(fastify)\n`)
-      .join('')}${resSchemas
-      .map((_, i) => `  const responseSchema${i} = responseSchemaFn${i}()\n`)
-      .join('')}${controllers
-      .map((_, i) => `  const controller${i} = controllerFn${i}(fastify)\n`)
-      .join('')}`,
+        .map((_, i) => `  const ctrlHooks${i} = ctrlHooksFn${i}(fastify)\n`)
+        .join('')}${resSchemas
+          .map((_, i) => `  const responseSchema${i} = responseSchemaFn${i}()\n`)
+          .join('')}${reqSchemas
+            .map((_, i) => `  const requestSchema${i} = requestSchemaFn${i}()\n`)
+            .join('')}${controllers
+              .map((_, i) => `  const controller${i} = controllerFn${i}(fastify)\n`)
+              .join('')}`,
     controllers: text
   }
 }
