@@ -15,9 +15,6 @@
   "bugs": {
     "url": "https://github.com/frouriojs/frourio/issues"
   },
-  "files": [
-    "dist"
-  ],
   "keywords": [
     "typescript",
     "aspida",
